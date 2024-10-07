@@ -5,7 +5,7 @@ import java.util.*;
 public class SokoBot {
 
     int stateCount = 0;
-  
+    DeadlockDetector dl = new DeadlockDetector();
   
   public String solveSokobanPuzzle(int width, int height, char[][] mapData, char[][] itemsData) {
     /*
@@ -44,7 +44,7 @@ public class SokoBot {
     
     PriorityQueue<State> nodes = new PriorityQueue<>((State s1, State s2) -> s1.getTotalCost() - s2.getTotalCost());
     HashSet<State> visited = new HashSet<>();
-    HashSet<Position> reachableSquares = getReachableSquares(goalPos, mapData, width, height);
+    HashSet<Position> reachableSquares = dl.getReachableSquares(goalPos, mapData, width, height);
     boolean solutionFound = false;
     
     nodes.add(initState);
@@ -125,7 +125,7 @@ public class SokoBot {
           int newPlayerY = current.getPlayerPos().getY() + moveY[i];
               
           
-          if (isValidBound(newPlayerX, newPlayerY, mapWidth, mapHeight, mapData)) {
+          if (dl.isValidBound(newPlayerX, newPlayerY, mapWidth, mapHeight, mapData)) {
               
               int boxIdx = getBoxIndex(boxPos, newPlayerX, newPlayerY);
               
@@ -135,7 +135,7 @@ public class SokoBot {
                   int newBoxX = newPlayerX + moveX[i];
                   int newBoxY = newPlayerY + moveY[i];
                   
-                  if (isValidBound(newBoxX, newBoxY, mapWidth, mapHeight, mapData) && getBoxIndex(boxPos, newBoxX, newBoxY) == -1) {
+                  if (dl.isValidBound(newBoxX, newBoxY, mapWidth, mapHeight, mapData) && getBoxIndex(boxPos, newBoxX, newBoxY) == -1) {
                       ArrayList<Position> newBoxPos = new ArrayList<>();
                       for (Position box : boxPos) {
                             newBoxPos.add(new Position(box.getX(), box.getY()));
@@ -143,18 +143,20 @@ public class SokoBot {
                       
                       
                       
-                      if (!isCorner(newBoxX, newBoxY, mapData) && reachableSquares.contains(newBoxPos.get(boxIdx))) {
+                      if (!dl.isCorner(newBoxX, newBoxY, mapData) && reachableSquares.contains(newBoxPos.get(boxIdx))
+                            && !dl.is2x2(newBoxX, newBoxY, mapData)  ) {
                         newBoxPos.get(boxIdx).setX(newBoxX);
                         newBoxPos.get(boxIdx).setY(newBoxY);
-                        Position newPlayerPos = new Position(newPlayerX, newPlayerY);
-                        neighbors.add(new State(newPlayerPos, current.getCost() + 1, heuristicFunc(newBoxPos, goalPos, newPlayerPos), newBoxPos, moves[i], true, current));
-                        System.out.println("Generated new state with move: " + moves[i]);
-                        stateCount++;
+                        
+                        if (!dl.isFrozen(new Position(newBoxX, newBoxY), mapData, reachableSquares, new HashSet<>(newBoxPos), new HashSet<>())) {
+                            Position newPlayerPos = new Position(newPlayerX, newPlayerY);
+                            neighbors.add(new State(newPlayerPos, current.getCost() + 1, heuristicFunc(newBoxPos, goalPos, newPlayerPos), newBoxPos, moves[i], true, current));
+                            stateCount++;
+                        }
                       }
                   }
-              } else if (!undoMove(current, moves[i])) {
+              } else if (!dl.undoMove(current, moves[i])) {
                    neighbors.add(new State(new Position(newPlayerX, newPlayerY), current.getCost() + 1, current.getHeuristic(), boxPos, moves[i], false, current));
-                   System.out.println("Generated new state with move: " + moves[i]);
                    stateCount++;
               }
           } 
@@ -174,10 +176,7 @@ public class SokoBot {
       return -1;
   }
   
-  // Check if item (player/box) is within the map
-  public boolean isValidBound(int xPos, int yPos, int mapWidth, int mapHeight, char[][] mapData) {
-      return xPos >= 0 && xPos < mapWidth && yPos >= 0 && yPos < mapHeight && mapData[yPos][xPos] != '#';
-  }
+  
   
   // Check if all goals are covered by boxes
   public boolean goalReached(ArrayList<Position> boxPos, ArrayList<Position> goalPos) {
@@ -208,7 +207,6 @@ public class SokoBot {
       while (last.getPrevMove() != '\0') {
           sb.append(last.getPrevMove());
           last = last.getParent();
-          System.out.println("PathMove: " + last.getPrevMove());
       }
       
       sb.reverse();
@@ -216,79 +214,6 @@ public class SokoBot {
       return sb.toString();
   }
   
-  // Corner deadlock detection
-  public boolean isCorner(int boxX, int boxY, char[][] mapData) {
-    // Check if the box is in a corner where no goal exists
-    if (mapData[boxY][boxX] != '.') {
-        boolean corner1 = mapData[boxY-1][boxX] == '#' && mapData[boxY][boxX-1] == '#'; // top-left corner
-        boolean corner2 = mapData[boxY-1][boxX] == '#' && mapData[boxY][boxX+1] == '#'; // top-right corner
-        boolean corner3 = mapData[boxY+1][boxX] == '#' && mapData[boxY][boxX-1] == '#'; // bottom-left corner
-        boolean corner4 = mapData[boxY+1][boxX] == '#' && mapData[boxY][boxX+1] == '#'; // bottom-right corner
-
-        return corner1 || corner2 || corner3 || corner4;
-    }
-    
-    return false;
-  }
   
-  // Check if move is redundant and just leads to an already explored state
-  public boolean undoMove(State current, char move) {
-    char lastMove = current.getPrevMove();
-
-    if ((lastMove == 'l' && move == 'r') || (lastMove == 'r' && move == 'l') || 
-        (lastMove == 'u' && move == 'd') || (lastMove == 'd' && move == 'u')) {
-        
-        State parent = current.getParent();
-        if (parent != null && parent.getPrevMove() == move) {
-            return true; 
-        }
-    }
-    
-    return false;
-  }
-  
-  
- 
-  
-
-
-  
-    public HashSet<Position> getReachableSquares(ArrayList<Position> goalPos, char mapData[][], int width, int height) {
-        HashSet<Position> reachableSquares = new HashSet<>();
-        HashSet<Position> visited = new HashSet<>();
-        int[] moveX = {0, 0, -1, 1};
-        int[] moveY = {-1, 1, 0, 0};
-      
-        for (Position goal : goalPos) {
-            Queue<Position> queue = new LinkedList<>();
-          
-            queue.add(goal);
-            visited.add(goal);  
-            reachableSquares.add(goal); 
-          
-            while (!queue.isEmpty()) {
-                Position current = queue.poll();
-                
-                int x = current.getX(), y = current.getY();
-              
-                // Pull boxes from each direction
-                for (int i = 0; i < 4; i++) {
-                    int boxX = x + moveX[i];
-                    int boxY = y + moveY[i];
-                  
-                    int playerX = x + 2 * moveX[i];
-                    int playerY = y + 2 * moveY[i];
-                  
-                    Position newBoxPos = new Position(boxX, boxY);
-                    if (isValidBound(boxX, boxY, width, height, mapData) && isValidBound(playerX, playerY, width, height, mapData) && !visited.contains(newBoxPos)) {
-                        reachableSquares.add(newBoxPos);
-                        visited.add(newBoxPos);
-                        queue.add(newBoxPos);
-                    }
-                }
-            }
-        }
-        return reachableSquares; 
-    }
 
 }
