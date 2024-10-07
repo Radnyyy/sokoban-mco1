@@ -1,3 +1,4 @@
+
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
@@ -17,19 +18,17 @@ public class State {
 
     
     
-    private int PlayerX;
-    private int PlayerY;
+    private Position playerPos;
     private int cost;
     private int heuristic;
-    private ArrayList<int[]> boxPos;
+    private ArrayList<Position> boxPos;
     private char prevMove;
     private boolean boxMoved;
     private State parent;
     
 
-    public State(int PlayerX, int PlayerY, int cost, int heuristic, ArrayList<int[]> boxPos, char prevMove, boolean boxMoved, State parent) {
-        this.PlayerX = PlayerX;
-        this.PlayerY = PlayerY;
+    public State(Position playerPos, int cost, int heuristic, ArrayList<Position> boxPos, char prevMove, boolean boxMoved, State parent) {
+        this.playerPos = playerPos;
         this.cost = cost;
         this.heuristic = heuristic;
         this.boxPos = boxPos;
@@ -38,23 +37,17 @@ public class State {
     }
     
     /**
-     * @return the PlayerX
+     * @return the playerPos
      */
-    public int getPlayerX() {
-        return PlayerX;
+    public Position getPlayerPos() {
+        return playerPos;
     }
 
-    /**
-     * @return the PlayerY
-     */
-    public int getPlayerY() {
-        return PlayerY;
-    }
     
     /**
      * @return the boxPos
      */
-    public ArrayList<int[]> getBoxPos() {
+    public ArrayList<Position> getBoxPos() {
         return boxPos;
     }
     
@@ -110,11 +103,11 @@ public class State {
         
         State s = (State) o;
         
-        if (s.getPlayerX() != PlayerX || s.getPlayerY() != PlayerY)
+        if (s.getPlayerPos().getX() != playerPos.getX() || s.getPlayerPos().getY() != playerPos.getY())
             return false;
         
         for (int i = 0; i < boxPos.size(); i++) {
-            if (!Arrays.equals(s.getBoxPos().get(i), boxPos.get(i))) {
+            if (!s.getBoxPos().get(i).equals(boxPos.get(i))) {
                 return false;
             }
         }
@@ -125,15 +118,12 @@ public class State {
     @Override
     public int hashCode() {
         int hash = 5;
-        hash = 37 * hash + this.PlayerX;
-        hash = 37 * hash + this.PlayerY;
-        
-        for (int[] box : boxPos) {
-            hash = 37 * hash + Arrays.hashCode(box);
-        }
-        
+        hash = 59 * hash + Objects.hashCode(this.playerPos);
+        hash = 59 * hash + Objects.hashCode(this.boxPos);
         return hash;
     }
+
+
 
   
 }
