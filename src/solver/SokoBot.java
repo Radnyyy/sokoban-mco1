@@ -49,7 +49,7 @@ public class SokoBot {
     
     nodes.add(initState);
     
-    // Start the search
+    // Start the A* search
     while (!nodes.isEmpty() && !solutionFound) {
         State current = nodes.poll();
         
@@ -71,46 +71,86 @@ public class SokoBot {
         }
     }
     
-    System.out.println("Number of States Explored: " + stateCount);
+    System.out.println("Number of States Generated: " + stateCount);
     return solution;
   }
   
-  // Heuristic function to calculate manhattan distance
+  /**
+   * Heuristic function based on manhattan distance from each box to a goal
+   * @param boxPos list of box positions
+   * @param goalPos list of goal positions
+   * @param playerPos current player position
+   * @return 
+   */
   public int heuristicFunc(ArrayList<Position> boxPos, ArrayList<Position> goalPos, Position playerPos) {
-      int heuristic = 0;
-      int minPlayerToBoxDist = Integer.MAX_VALUE;
-      boolean[] goalUsed = new boolean[goalPos.size()];
+        int heuristic = 0;
+        boolean[] goalUsed = new boolean[goalPos.size()];
+        boolean[] boxUsed = new boolean[boxPos.size()];
+        ArrayList<int[]> distances = new ArrayList<>(); // Each element will be {distance, boxIndex, goalIndex}
 
-      for (Position box : boxPos) {
-          int minDist = Integer.MAX_VALUE;
-          int closestGoalIdx = -1;
+        // Calculate distances between each box and each goal
+        for (int i = 0; i < boxPos.size(); i++) {
+            for (int j = 0; j < goalPos.size(); j++) {
+                int distance = Math.abs(boxPos.get(i).getX() - goalPos.get(j).getX()) +
+                               Math.abs(boxPos.get(i).getY() - goalPos.get(j).getY());
+                distances.add(new int[] {distance, i, j}); // Store the distance, box index, and goal index
+            }
+        }
 
-          for (int i = 0; i < goalPos.size(); i++) {
-              if (!goalUsed[i]) {
-                  int dist = Math.abs(box.getX() - goalPos.get(i).getX()) + Math.abs(box.getY() - goalPos.get(i).getY());
-                  if (dist < minDist) {
-                      minDist = dist;
-                      closestGoalIdx = i;
-                  }
-              }
-              
-          }
+        // Sort distances by the distance value (ascending order)
+        distances.sort((a, b) -> a[0] - b[0]);
 
-          if (closestGoalIdx != -1) {
-              goalUsed[closestGoalIdx] = true;
-              heuristic += minDist;
-          }
-          
-          int playerToBoxDist = Math.abs(box.getX() - playerPos.getX()) + Math.abs(box.getY() - playerPos.getY());
-          minPlayerToBoxDist = Math.min(playerToBoxDist, minPlayerToBoxDist);
-      }
+        // Try to match boxes to goals
+        for (int[] entry : distances) {
+            int distance = entry[0];
+            int boxIndex = entry[1];
+            int goalIndex = entry[2];
+
+            // If neither the box nor the goal has been used yet, match them
+            if (!boxUsed[boxIndex] && !goalUsed[goalIndex]) {
+                heuristic += distance;      // Add the distance to the heuristic
+                boxUsed[boxIndex] = true;   // Mark the box as used
+                goalUsed[goalIndex] = true; // Mark the goal as used
+            }
+        }
+
+        // If any boxes are left unmatched, match them to their closest unused goal
+        for (int i = 0; i < boxPos.size(); i++) {
+            if (!boxUsed[i]) {
+                int closestGoalDist = Integer.MAX_VALUE;
+                int closestGoalIndex = -1;
+                for (int j = 0; j < goalPos.size(); j++) {
+                    if (!goalUsed[j]) {
+                        int distance = Math.abs(boxPos.get(i).getX() - goalPos.get(j).getX()) +
+                                       Math.abs(boxPos.get(i).getY() - goalPos.get(j).getY());
+                        if (distance < closestGoalDist) {
+                            closestGoalDist = distance;
+                            closestGoalIndex = j;
+                        }
+                    }
+                }
+                // Match the unmatched box with the closest unused goal
+                heuristic += closestGoalDist;
+                boxUsed[i] = true;
+                goalUsed[closestGoalIndex] = true;
+            }
+        }
 
       //return heuristic + minPlayerToBoxDist;
       return heuristic;
       
   }
   
-  // Get next possible states
+  /**
+   * Generate the next possible states from the current state.
+   * @param current current state
+   * @param mapWidth map width
+   * @param mapHeight map height
+   * @param mapData map data
+   * @param goalPos list of goal positions
+   * @param reachableSquares pre-calculated set of reachable squares
+   * @return list of neighboring states
+   */
   public List<State> getNeighborStates(State current, int mapWidth, int mapHeight, char[][] mapData, ArrayList<Position> goalPos, HashSet<Position> reachableSquares) {
       List<State> neighbors = new ArrayList<>();
       ArrayList<Position> boxPos = current.getBoxPos();
@@ -143,8 +183,7 @@ public class SokoBot {
                       
                       
                       
-                      if (!dl.isCorner(newBoxX, newBoxY, mapData) && reachableSquares.contains(newBoxPos.get(boxIdx))
-                            && !dl.is2x2(newBoxX, newBoxY, mapData)  ) {
+                      if (reachableSquares.contains(newBoxPos.get(boxIdx))) {
                         newBoxPos.get(boxIdx).setX(newBoxX);
                         newBoxPos.get(boxIdx).setY(newBoxY);
                         
@@ -152,6 +191,7 @@ public class SokoBot {
                             Position newPlayerPos = new Position(newPlayerX, newPlayerY);
                             neighbors.add(new State(newPlayerPos, current.getCost() + 1, heuristicFunc(newBoxPos, goalPos, newPlayerPos), newBoxPos, moves[i], true, current));
                             stateCount++;
+                          
                         }
                       }
                   }
@@ -166,10 +206,17 @@ public class SokoBot {
       return neighbors;
   }
   
-  // Get the index of the box
-  public int getBoxIndex(ArrayList<Position> boxPos, int playerX, int playerY) {    
+  /**
+   * Checks the index of the box within the boxPos array list based on a given
+   * position
+   * @param boxPos list of box positions
+   * @param posX given x coordinate
+   * @param posY given y coordinate
+   * @return 
+   */
+  public int getBoxIndex(ArrayList<Position> boxPos, int posX, int posY) {    
       for (int i = 0; i < boxPos.size(); i++) {
-          if (boxPos.get(i).getX() == playerX && boxPos.get(i).getY() == playerY)
+          if (boxPos.get(i).getX() == posX && boxPos.get(i).getY() == posY)
               return i;
       }
       
@@ -178,7 +225,12 @@ public class SokoBot {
   
   
   
-  // Check if all goals are covered by boxes
+  /**
+   * Checks if all goals are covered by boxes
+   * @param boxPos list of box positions
+   * @param goalPos list of goal positions
+   * @return true if all goals are covered by boxes, false otherwise
+   */
   public boolean goalReached(ArrayList<Position> boxPos, ArrayList<Position> goalPos) {
     for (int i = 0; i < boxPos.size(); i++) {
         boolean goalFound = false;
@@ -199,7 +251,11 @@ public class SokoBot {
        return true;
   }
   
-  // Rebuild the optimal path once goal is reached
+  /**
+   * Rebuild the optimal path once goal is reached
+   * @param last the last/goal state
+   * @return the solution string
+   */
   public String getPath(State last) {
     
       StringBuilder sb = new StringBuilder();
