@@ -23,11 +23,10 @@ public class State {
     private int heuristic;
     private ArrayList<Position> boxPos;
     private char prevMove;
-    private boolean boxMoved;
     private State parent;
     
 
-    public State(Position playerPos, int cost, int heuristic, ArrayList<Position> boxPos, char prevMove, boolean boxMoved, State parent) {
+    public State(Position playerPos, int cost, int heuristic, ArrayList<Position> boxPos, char prevMove, State parent) {
         this.playerPos = playerPos;
         this.cost = cost;
         this.heuristic = heuristic;
@@ -77,13 +76,6 @@ public class State {
      */
     public char getPrevMove() {
         return prevMove;
-    }
-
-    /**
-     * @return the boxMoved
-     */
-    public boolean isBoxMoved() {
-        return boxMoved;
     }
     
     /**
