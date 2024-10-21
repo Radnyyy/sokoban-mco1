@@ -5,6 +5,7 @@ import java.util.*;
 public class SokoBot {
 
     int stateCount = 0;
+    int exploredCount = 0;
     DeadlockDetector dl = new DeadlockDetector();
   
   public String solveSokobanPuzzle(int width, int height, char[][] mapData, char[][] itemsData) {
@@ -39,7 +40,7 @@ public class SokoBot {
         }
     }
     
-    State initState = new State(playerPos, 0, heuristicFunc(initBoxPos, goalPos, playerPos), initBoxPos, '\0', false, null);
+    State initState = new State(playerPos, 0, heuristicFunc(initBoxPos, goalPos, playerPos), initBoxPos, '\0', null);
     
     
     PriorityQueue<State> nodes = new PriorityQueue<>((State s1, State s2) -> s1.getTotalCost() - s2.getTotalCost());
@@ -49,7 +50,7 @@ public class SokoBot {
     
     nodes.add(initState);
     
-    // Start the A* search
+    // Start the search
     while (!nodes.isEmpty() && !solutionFound) {
         State current = nodes.poll();
         
@@ -66,23 +67,25 @@ public class SokoBot {
             for (State s : neighbors) {
                 if(!visited.contains(s)) {
                     nodes.add(s);
+                    exploredCount++;
                 }
             }
         }
     }
     
+    System.out.println("Number of States Explored: " + exploredCount);
     System.out.println("Number of States Generated: " + stateCount);
     return solution;
   }
   
   /**
-   * Heuristic function based on manhattan distance from each box to a goal
-   * @param boxPos list of box positions
-   * @param goalPos list of goal positions
-   * @param playerPos current player position
-   * @return 
-   */
-  public int heuristicFunc(ArrayList<Position> boxPos, ArrayList<Position> goalPos, Position playerPos) {
+ * Heuristic function based on the shortest path distance from each box to a goal, considering obstacles.
+ * @param boxPos list of box positions
+ * @param goalPos list of goal positions
+ * @param playerPos current player position
+ * @return heuristic value
+ */
+public int heuristicFunc(ArrayList<Position> boxPos, ArrayList<Position> goalPos, Position playerPos) {
         int heuristic = 0;
         boolean[] goalUsed = new boolean[goalPos.size()];
         boolean[] boxUsed = new boolean[boxPos.size()];
@@ -140,6 +143,7 @@ public class SokoBot {
       return heuristic;
       
   }
+
   
   /**
    * Generate the next possible states from the current state.
@@ -160,43 +164,49 @@ public class SokoBot {
       int[] moveY = {-1, 1, 0, 0};
       char moves[] = {'u', 'd', 'l', 'r'};
       
+      // Iterate through each direction
       for (int i = 0; i < 4; i++) {
+          // Get new player position
           int newPlayerX = current.getPlayerPos().getX() + moveX[i];
           int newPlayerY = current.getPlayerPos().getY() + moveY[i];
               
-          
+          // Check if new player position is within bounds
           if (dl.isValidBound(newPlayerX, newPlayerY, mapWidth, mapHeight, mapData)) {
               
               int boxIdx = getBoxIndex(boxPos, newPlayerX, newPlayerY);
-              
-              
-                      
+                         
+              // Check if box is pushed
               if (boxIdx != -1) {
+                  // Get new box position
                   int newBoxX = newPlayerX + moveX[i];
                   int newBoxY = newPlayerY + moveY[i];
                   
-                  if (dl.isValidBound(newBoxX, newBoxY, mapWidth, mapHeight, mapData) && getBoxIndex(boxPos, newBoxX, newBoxY) == -1) {
+                  // Check if box is pushed to a reachable space
+                  if (dl.isValidBound(newBoxX, newBoxY, mapWidth, mapHeight, mapData) && getBoxIndex(boxPos, newBoxX, newBoxY) == -1
+                          && reachableSquares.contains(new Position(newBoxX, newBoxY))) {
+                      
                       ArrayList<Position> newBoxPos = new ArrayList<>();
+                      // Copy all box positions to arraylist
                       for (Position box : boxPos) {
                             newBoxPos.add(new Position(box.getX(), box.getY()));
                       }
                       
-                      
-                      
-                      if (reachableSquares.contains(newBoxPos.get(boxIdx))) {
+                      // Overwrite position of pushed box
                         newBoxPos.get(boxIdx).setX(newBoxX);
                         newBoxPos.get(boxIdx).setY(newBoxY);
                         
+                        // Check if box is in a frozen deadlock and add state if not
                         if (!dl.isFrozen(new Position(newBoxX, newBoxY), mapData, reachableSquares, new HashSet<>(newBoxPos), new HashSet<>())) {
                             Position newPlayerPos = new Position(newPlayerX, newPlayerY);
-                            neighbors.add(new State(newPlayerPos, current.getCost() + 1, heuristicFunc(newBoxPos, goalPos, newPlayerPos), newBoxPos, moves[i], true, current));
+                            neighbors.add(new State(newPlayerPos, current.getCost() + 1, heuristicFunc(newBoxPos, goalPos, newPlayerPos), newBoxPos, moves[i], current));
                             stateCount++;
                           
                         }
-                      }
+                      
                   }
+                  // Box is not pushed
               } else if (!dl.undoMove(current, moves[i])) {
-                   neighbors.add(new State(new Position(newPlayerX, newPlayerY), current.getCost() + 1, current.getHeuristic(), boxPos, moves[i], false, current));
+                   neighbors.add(new State(new Position(newPlayerX, newPlayerY), current.getCost() + 1, current.getHeuristic(), boxPos, moves[i], current));
                    stateCount++;
               }
           } 
