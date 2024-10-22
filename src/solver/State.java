@@ -18,17 +18,15 @@ public class State {
 
     
     
-    private Position playerPos;
-    private int cost;
-    private int heuristic;
-    private ArrayList<Position> boxPos;
-    private char prevMove;
-    private State parent;
+    private final Position playerPos;
+    private final int heuristic;
+    private final ArrayList<Position> boxPos;
+    private final char prevMove;
+    private final State parent;
     
 
-    public State(Position playerPos, int cost, int heuristic, ArrayList<Position> boxPos, char prevMove, State parent) {
+    public State(Position playerPos, int heuristic, ArrayList<Position> boxPos, char prevMove, State parent) {
         this.playerPos = playerPos;
-        this.cost = cost;
         this.heuristic = heuristic;
         this.boxPos = boxPos;
         this.prevMove = prevMove;
@@ -51,24 +49,10 @@ public class State {
     }
     
     /**
-     * @return the cost
-     */
-    public int getCost() {
-        return cost;
-    }
-
-    /**
      * @return the heuristic
      */
     public int getHeuristic() {
         return heuristic;
-    }
-    
-    /**
-     * @return the total cost
-     */
-    public int getTotalCost() {
-        return cost + heuristic;
     }
     
     /**

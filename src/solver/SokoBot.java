@@ -40,10 +40,10 @@ public class SokoBot {
         }
     }
     
-    State initState = new State(playerPos, 0, heuristicFunc(initBoxPos, goalPos, playerPos), initBoxPos, '\0', null);
+    State initState = new State(playerPos, heuristicFunc(initBoxPos, goalPos, playerPos), initBoxPos, '\0', null);
     
     
-    PriorityQueue<State> nodes = new PriorityQueue<>((State s1, State s2) -> s1.getTotalCost() - s2.getTotalCost());
+    PriorityQueue<State> nodes = new PriorityQueue<>((State s1, State s2) -> s1.getHeuristic() - s2.getHeuristic());
     HashSet<State> visited = new HashSet<>();
     HashSet<Position> reachableSquares = dl.getReachableSquares(goalPos, mapData, width, height);
     boolean solutionFound = false;
@@ -198,7 +198,7 @@ public int heuristicFunc(ArrayList<Position> boxPos, ArrayList<Position> goalPos
                         // Check if box is in a frozen deadlock and add state if not
                         if (!dl.isFrozen(new Position(newBoxX, newBoxY), mapData, reachableSquares, new HashSet<>(newBoxPos), new HashSet<>())) {
                             Position newPlayerPos = new Position(newPlayerX, newPlayerY);
-                            neighbors.add(new State(newPlayerPos, current.getCost() + 1, heuristicFunc(newBoxPos, goalPos, newPlayerPos), newBoxPos, moves[i], current));
+                            neighbors.add(new State(newPlayerPos, heuristicFunc(newBoxPos, goalPos, newPlayerPos), newBoxPos, moves[i], current));
                             stateCount++;
                           
                         }
@@ -206,7 +206,7 @@ public int heuristicFunc(ArrayList<Position> boxPos, ArrayList<Position> goalPos
                   }
                   // Box is not pushed
               } else if (!dl.undoMove(current, moves[i])) {
-                   neighbors.add(new State(new Position(newPlayerX, newPlayerY), current.getCost() + 1, current.getHeuristic(), boxPos, moves[i], current));
+                   neighbors.add(new State(new Position(newPlayerX, newPlayerY), current.getHeuristic(), boxPos, moves[i], current));
                    stateCount++;
               }
           } 
